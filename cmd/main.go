@@ -23,26 +23,63 @@ type building struct {
 	notes     string
 }
 
-const BUILDING_BASE_URL = "http://www.worldarchitecturemap.org/buildings/"
+const (
+	BUILDING_BASE_URL = "http://www.worldarchitecturemap.org/buildings/"
+)
 
 func main() {
-	buildingsPage := []string{
-		"http://www.worldarchitecturemap.org/buildings/",                          //Landing, 1st page
-		"http://www.worldarchitecturemap.org/buildings/?currentpage=2",            //Landing, existing page
-		"http://www.worldarchitecturemap.org/buildings/?currentpage=10",           //Landing, none existing page
-		"http://www.worldarchitecturemap.org/buildings/?letter=o",                 //Letter, 1st page
-		"http://www.worldarchitecturemap.org/buildings/?currentpage=5&letter=o",   //Letter, existing page
-		"http://www.worldarchitecturemap.org/buildings/?currentpage=999&letter=k", //Letter, none existing page
+
+	var allBuildingsUrl []string
+
+	//Get all the urls
+	fmt.Println("Starting to get all buildings urls")
+	allBuildingsUrl = append(allBuildingsUrl, parseLetterBuildingList(BUILDING_BASE_URL)...)
+	fmt.Printf("Collected all numbers buildings urls, total: %d\n", len(allBuildingsUrl))
+	for c := 'a'; c <= 'z'; c++ {
+		url := fmt.Sprintf("%s?letter=%s", BUILDING_BASE_URL, string(c))
+		bList := parseLetterBuildingList(url)
+		fmt.Printf("Collected all letter %s buildings urls, total: %d\n", string(c), len(bList))
+		allBuildingsUrl = append(allBuildingsUrl, bList...)
 	}
-	for _, listUrl := range buildingsPage {
-		fmt.Println("\nParsing building list: " + listUrl)
-		list, err := parsePageBuildingList(listUrl)
-		if err == nil {
-			fmt.Printf("%v", list)
+	fmt.Printf("Finished getting all the buildings urls. Total urls collected: %d\n", len(allBuildingsUrl))
+}
+
+//Given a letter returns all the buildings urls starting with that letter
+func parseLetterBuildingList(baseUrl string) []string {
+
+	var letterBuildingList []string
+	var tmpList []string
+	var err error
+
+	//1st page
+	tmpList, err = parsePageBuildingList(baseUrl)
+	if err == nil {
+		letterBuildingList = append(letterBuildingList, tmpList...)
+	} else {
+		fmt.Sprintf("Error when parsing %s: %s", baseUrl, err.Error())
+	}
+
+	//The rest of the pages
+	currentPage := 2
+	for {
+		var currentUrl string
+		if strings.Contains(baseUrl, "?") {
+			currentUrl = fmt.Sprintf("%s&currentpage=%d", baseUrl, currentPage)
 		} else {
-			fmt.Printf(err.Error())
+			currentUrl = fmt.Sprintf("%s?currentpage=%d", baseUrl, currentPage)
 		}
+		tmpList, err = parsePageBuildingList(currentUrl)
+		if err == nil {
+			if len(tmpList) == 0 {
+				break
+			}
+			letterBuildingList = append(letterBuildingList, tmpList...)
+		} else {
+			fmt.Sprintf("Error when parsing %s: %s", baseUrl, err.Error())
+		}
+		currentPage++
 	}
+	return letterBuildingList
 }
 
 //Given a buildings list page url it will return all the urls for the buildings on that page
