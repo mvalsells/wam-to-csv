@@ -4,7 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
+	"io/ioutil"
 	"net/http"
+	"os"
+	"path"
 	"strings"
 )
 
@@ -30,6 +33,7 @@ const (
 func main() {
 
 	var allBuildingsUrl []string
+	var allBuildings []building
 
 	//Get all the urls
 	fmt.Println("Starting to get all buildings urls")
@@ -41,7 +45,60 @@ func main() {
 		fmt.Printf("Collected all letter %s buildings urls, total: %d\n", string(c), len(bList))
 		allBuildingsUrl = append(allBuildingsUrl, bList...)
 	}
-	fmt.Printf("Finished getting all the buildings urls. Total urls collected: %d\n", len(allBuildingsUrl))
+	fmt.Printf("Finished getting all the buildings urls. Total urls collected: %d\n------------------------------------------------------------------------------------\n", len(allBuildingsUrl))
+
+	//Save all the building information
+	fmt.Println("\nStarting to download buildings information")
+	for i, bUrl := range allBuildingsUrl {
+		b, err := parseBuilding(bUrl)
+		if err == nil {
+			allBuildings = append(allBuildings, b)
+
+		} else {
+			fmt.Printf("Error when parsing %s: %s\n", bUrl, err.Error())
+		}
+		if i%100 == 99 {
+			fmt.Printf("Downloaded information from %d/%d buildings\n", i+1, len(allBuildingsUrl))
+		}
+	}
+
+	//Save data to file
+	dir, err := os.Executable()
+	if err == nil {
+		err = saveBuildingsToCsv(allBuildings, path.Join(dir, "wam-export.csv"))
+		if err != nil {
+			fmt.Printf("Unable to write buildings to a file: %s\n", err.Error())
+		}
+	} else {
+		fmt.Printf("Unable to get current path, data will not be saved to a file")
+	}
+
+}
+
+//Given a slice of buildings save them in a CSV format in the provided file path
+//Returns error if it wasn't unable to save them in the file
+func saveBuildingsToCsv(buildings []building, filePath string) error {
+	csvText := []string{`"name", "architect", "city", "state", "country", "latitude", "longitude", "date", "style", "type", "alias", "notes"`}
+
+	for _, b := range buildings {
+		s := fmt.Sprintf(`"%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s"`,
+			b.name,
+			b.architect,
+			b.city,
+			b.state,
+			b.country,
+			b.latitude,
+			b.longitude,
+			b.date,
+			b.style,
+			b._type,
+			b.alias,
+			b.notes)
+		csvText = append(csvText, s)
+	}
+
+	err := ioutil.WriteFile(filePath, []byte(strings.Join(csvText, "\n")), 0644)
+	return err
 }
 
 //Given a letter returns all the buildings urls starting with that letter
