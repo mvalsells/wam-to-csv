@@ -6,7 +6,6 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"path"
 	"strings"
 )
@@ -27,7 +26,12 @@ type building struct {
 }
 
 const (
-	BUILDING_BASE_URL = "http://www.worldarchitecturemap.org/buildings/"
+	BUILDING_BASE_URL    = "http://www.worldarchitecturemap.org/buildings/"
+	BUILDING_TABLE_DATE  = "Date"
+	BUILDING_TABLE_STYLE = "Style"
+	BUILDING_TABLE_TYPE  = "Type"
+	BUILDING_TABLE_ALIAS = "Alias"
+	BUILDING_TABLE_NOTES = "Notes"
 )
 
 func main() {
@@ -63,16 +67,21 @@ func main() {
 	}
 
 	//Save data to file
-	dir, err := os.Executable()
+	//dir, err := os.Executable()
+	dir := "/home/mvalsells/Desktop"
+	var err error = nil
 	if err == nil {
+		//err = saveBuildingsToCsv(allBuildings, path.Join(dir, "wam-export.csv"))
 		err = saveBuildingsToCsv(allBuildings, path.Join(dir, "wam-export.csv"))
 		if err != nil {
 			fmt.Printf("Unable to write buildings to a file: %s\n", err.Error())
+		} else {
+			fmt.Printf("Data saved in the %s file.\n", dir)
 		}
 	} else {
-		fmt.Printf("Unable to get current path, data will not be saved to a file")
+		fmt.Printf("Unable to get current path, data will not be saved to a file\n")
 	}
-
+	fmt.Printf("Job finished, exiting...\n")
 }
 
 //Given a slice of buildings save them in a CSV format in the provided file path
@@ -192,7 +201,6 @@ func parsePageBuildingList(url string) ([]string, error) {
 func parseBuilding(url string) (building, error) {
 
 	var b building
-
 	resp, err := http.Get(url)
 
 	if err != nil {
@@ -243,25 +251,51 @@ func parseBuilding(url string) (building, error) {
 		b.longitude = getStringInBetween(gpsHTML[pos:], "(", ")")
 	}
 
+	i := 3
+
 	//Date row
-	dateRow := tableHtml.Find("tr").Eq(3)
-	b.date = dateRow.Children().Next().Text()
+	dateRow := tableHtml.Find("tr").Eq(i)
+	if dateRow.Children().First().Text() == BUILDING_TABLE_DATE {
+		b.date = dateRow.Children().Next().Text()
+		i++
+	} else {
+		b.date = ""
+	}
 
 	//Style row
-	styleRow := tableHtml.Find("tr").Eq(4)
-	b.style = styleRow.Find("a").Text()
+	styleRow := tableHtml.Find("tr").Eq(i)
+	if styleRow.Children().First().Text() == BUILDING_TABLE_STYLE {
+		b.style = styleRow.Find("a").Text()
+		i++
+	} else {
+		b.style = ""
+	}
 
 	//Type row
-	typeRow := tableHtml.Find("tr").Eq(5)
-	b._type = typeRow.Find("a").Text()
+	typeRow := tableHtml.Find("tr").Eq(i)
+	if typeRow.Children().First().Text() == BUILDING_TABLE_TYPE {
+		b._type = typeRow.Find("a").Text()
+		i++
+	} else {
+		b.style = ""
+	}
 
 	//Alias row
-	aliasRow := tableHtml.Find("tr").Eq(6)
-	b.alias = aliasRow.Children().Next().Text()
+	aliasRow := tableHtml.Find("tr").Eq(i)
+	if aliasRow.Children().First().Text() == BUILDING_TABLE_ALIAS {
+		b.alias = aliasRow.Children().Next().Text()
+		i++
+	} else {
+		b.alias = ""
+	}
 
 	//Notes row
-	notesRow := tableHtml.Find("tr").Eq(7)
-	b.notes = notesRow.Children().Next().Text()
+	notesRow := tableHtml.Find("tr").Eq(i)
+	if notesRow.Children().First().Text() == BUILDING_TABLE_NOTES {
+		b.notes = notesRow.Children().Next().Text()
+	} else {
+		b.notes = ""
+	}
 
 	//Check building existence
 	if b.name == "" && b.architect == "" {
